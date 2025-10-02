@@ -1,75 +1,50 @@
-# Rust FFmpeg Thumbnail Generator
+# Thumbnail Generator
 
-[ai generated readme]
-
-This repo is an archive of my thumbnail generation code attempts which i'll use for ruurd photos 2
-[link](github.com/ruurdbijlsma/photos-backend)
+Simple Rust scripts for generating thumbnails from images and videos using FFmpeg.
 
 ## Features
 
-- **Asynchronous Execution**: Uses `tokio` to run `ffmpeg` commands asynchronously, preventing the application from
-  blocking.
-- **Error Handling**: Leverages the `anyhow` crate for robust and easy-to-read error handling.
-- **Efficient Image Thumbnailing**: Generates multiple thumbnails of different heights from a single source image in a
-  *single `ffmpeg` call*.
-- **Complex Video Thumbnailing**: Generates a complex series of video thumbnails in a *single `ffmpeg` call*, including:
-    - Multiple sizes from a single timestamp.
-    - Multiple timestamps at a single size.
-- **Efficient Seeking**: Uses multiple `-ss` inputs for video processing, which is significantly faster for grabbing
-  frames from specific timestamps compared to decoding the entire video.
+- **Image thumbnails:** Generate multiple sizes from a single source image in one FFmpeg call.
+- **Video thumbnails:** Generate multiple thumbnails:
+  - At multiple resolutions from a single timestamp.
+  - At multiple timestamps with a single resolution.
+- Async execution using Tokio.
 
-## Prerequisites
+## Usage
 
-Before you can run this project, you must have the following installed on your system:
+### Image Thumbnails
 
-1. **Rust Toolchain**: Install Rust by following the official instructions at [rustup.rs](https://rustup.rs/).
-2. **FFmpeg**: The `ffmpeg` command-line tool must be installed and accessible in your system's `PATH`. You can download
-   it from the [official FFmpeg website](https://ffmpeg.org/download.html) or install it via a package manager like
-   `brew`, `apt`, or `chocolatey`.
+```rust
+generate_image_thumbnails(
+    Path::new("assets/PICT0008.JPG"),
+    Path::new("image_thumbnails"),
+    &[240, 480, 1080],
+    "avif",
+).await?;
+````
 
-## How to Use
+### Video Thumbnails
 
-1. **Clone the Repository**:
-   ```bash
-   git clone <your-repository-url>
-   cd <repository-name>
-   ```
+```rust
+generate_video_thumbnail_series(
+    Path::new("assets/jellyfish.mp4"),
+    Path::new("video_thumbnails_series"),
+    "avif",
+    &[240, 480, 1080], // Multi-size heights
+    0.5,               // Multi-size timestamp
+    &[10.0, 30.0, 50.0], // Multi-time timestamps
+    720,               // Multi-time height
+).await?;
+```
 
-2. **Create the Assets Directory**:
-   The code expects an `assets` directory with source files. Create it in the project root:
-   ```bash
-   mkdir assets
-   ```
+## Requirements
 
-3. **Add Sample Files**:
-   Place a sample image and a sample video into the `assets` directory. The current code is configured to use:
-    - `assets/PICT0008.JPG`
-    - `assets/kwal.mp4`
+* Rust with Tokio
+* FFmpeg installed and available in `PATH`
 
-   You can modify the paths in the `main` function in `src/main.rs` to point to your own files.
+## Notes
 
-4. **Run the Project**:
-   Execute the program using Cargo:
-   ```bash
-   cargo run --release
-   ```
-
-   The program will create two new directories in the project root:
-    - `image_thumbnails/`: Will contain the generated thumbnails from your source image (e.g., `240.avif`, `480.avif`,
-      `1080.avif`).
-    - `video_thumbnails_series/`: Will contain the complex set of thumbnails generated from your video file.
-
-## Code Overview
-
-- `main()`: The entry point of the application. It defines the input paths, output directories, and the desired
-  thumbnail specifications before calling the generation functions.
-- `run_ffmpeg()`: A helper function that takes `ffmpeg` arguments, spawns a child process, and waits for it to complete.
-  It returns an error if the `ffmpeg` command fails, capturing the `stderr` output for easy debugging.
-- `generate_image_thumbnails()`: Constructs a single `ffmpeg` command using the `-filter_complex` flag with the `split`
-  and `scale` filters to create multiple resized versions of a source image in one go.
-- `generate_video_thumbnail_series()`: Constructs a more advanced `ffmpeg` command. It uses multiple inputs with `-ss`
-  for fast seeking and a complex filtergraph to extract frames from different timestamps and scale them to various
-  sizes, all within a single process.
-
-This project serves as a practical example of how to orchestrate powerful command-line tools like `ffmpeg` from within a
-modern, safe, and concurrent language like Rust.
+* Paths are converted using `to_string_lossy()` for safety.
+* FFmpeg errors are captured and returned using `anyhow`.
+* Image thumbnails use a single call with `split` and `scale`.
+* Video thumbnails support complex combinations of sizes and timestamps in a single FFmpeg call.
