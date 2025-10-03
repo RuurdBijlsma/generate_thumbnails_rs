@@ -1,9 +1,28 @@
-use crate::OutputOptions;
 use crate::ffmpeg::run_ffmpeg;
 use crate::ffprobe::get_video_duration;
 use anyhow::{Context, Result};
 use std::path::Path;
+use serde::{Deserialize, Serialize};
+use temp_dir::TempDir;
 use tokio::fs;
+use crate::utils::move_dir_contents;
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VideoOutputFormat {
+    pub height: u64,
+    pub quality: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputOptions {
+    pub thumb_format: String,
+    pub heights: Vec<u64>,
+    pub thumb_time: f64,
+    pub percentages: Vec<u64>,
+    pub height: u64,
+    pub output_videos: Vec<VideoOutputFormat>,
+}
 
 fn path_str(p: &Path) -> String {
     p.to_string_lossy().into_owned()
@@ -166,4 +185,35 @@ pub async fn generate_video_thumbnails(
 
     println!("{:?}", args.join(" "));
     run_ffmpeg(&args).await
+}
+
+pub async fn generate_thumbnails(file: &Path, thumbs_dir: &Path, config: &OutputOptions) -> Result<()> {
+    let Some(extension) = file.extension().and_then(|s| s.to_str()) else {
+        return Ok(());
+    };
+    let Some(filename) = file.file_name().and_then(|s| s.to_str()) else {
+        return Ok(());
+    };
+
+    let photo_extensions = ["jpg", "jpeg", "png", "gif", "tiff", "tga"];
+    let video_extensions = [
+        "mp4", "webm", "av1", "3gp", "mov", "mkv", "flv", "m4v", "m4p",
+    ];
+
+    let extension = extension.to_lowercase();
+    let temp_dir = TempDir::new()?;
+    let temp_out_dir = temp_dir.path();
+
+    if photo_extensions.contains(&extension.as_str()) {
+        generate_image_thumbnails(file, temp_out_dir, &config.heights, "avif").await?
+    } else if video_extensions.contains(&extension.as_str()) {
+        generate_video_thumbnails(file, temp_out_dir, config).await?
+    } else {
+        println!("Skipping file: {:?}", file);
+    }
+
+    let output_folder = thumbs_dir.join(filename);
+    move_dir_contents(temp_out_dir, &output_folder).await?;
+
+    Ok(())
 }

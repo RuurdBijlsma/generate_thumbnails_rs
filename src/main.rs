@@ -1,64 +1,15 @@
 mod ffmpeg;
 mod ffprobe;
 mod thumbnails;
+mod utils;
 
-use crate::thumbnails::{generate_image_thumbnails, generate_video_thumbnails};
+use crate::thumbnails::{generate_thumbnails, OutputOptions, VideoOutputFormat};
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tokio::fs;
-use tokio_retry::Retry;
 use tokio_retry::strategy::FixedInterval;
+use tokio_retry::Retry;
 use walkdir::WalkDir;
-
-// todo:
-// process to temp folder, copy when success
-// webm outputs
-// clean up code
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct VideoOutputFormat {
-    height: u64,
-    quality: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputOptions {
-    thumb_format: String,
-    heights: Vec<u64>,
-    thumb_time: f64,
-    percentages: Vec<u64>,
-    height: u64,
-    output_videos: Vec<VideoOutputFormat>,
-}
-
-async fn generate_thumbnails(file: &Path, thumbs_dir: &Path, config: &OutputOptions) -> Result<()> {
-    let Some(extension) = file.extension().and_then(|s| s.to_str()) else {
-        return Ok(());
-    };
-    let Some(filename) = file.file_name().and_then(|s| s.to_str()) else {
-        return Ok(());
-    };
-
-    let photo_extensions = ["jpg", "jpeg", "png", "gif", "tiff", "tga"];
-    let video_extensions = [
-        "mp4", "webm", "av1", "3gp", "mov", "mkv", "flv", "m4v", "m4p",
-    ];
-
-    let extension = extension.to_lowercase();
-    let output_folder = thumbs_dir.join(filename);
-    fs::create_dir_all(&output_folder).await?;
-
-    if photo_extensions.contains(&extension.as_str()) {
-        generate_image_thumbnails(file, &output_folder, &config.heights, "avif").await?
-    } else if video_extensions.contains(&extension.as_str()) {
-        generate_video_thumbnails(file, &output_folder, config).await?
-    } else {
-        println!("Skipping file: {:?}", file);
-    }
-
-    Ok(())
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
