@@ -1,7 +1,8 @@
-use std::path::Path;
-use anyhow::Context;
-use tokio::fs;
 use crate::ffmpeg::run_ffmpeg;
+use crate::ffprobe::get_video_duration;
+use anyhow::Context;
+use std::path::Path;
+use tokio::fs;
 
 pub async fn generate_image_thumbnails(
     input: &Path,
@@ -29,7 +30,11 @@ pub async fn generate_image_thumbnails(
 
     for (i, &h) in heights.iter().enumerate() {
         let out = output_dir.join(format!("{h}.{ext}"));
-        args.extend(["-map".into(), format!("[out{i}]"), out.to_string_lossy().to_string()]);
+        args.extend([
+            "-map".into(),
+            format!("[out{i}]"),
+            out.to_string_lossy().to_string(),
+        ]);
     }
 
     run_ffmpeg(&args).await
@@ -41,12 +46,13 @@ pub async fn generate_video_thumbnails(
     ext: &str,
     multi_size_heights: &[u64],
     multi_size_time: f64,
-    multi_time_stamps: &[f64],
+    multi_time_percentages: &[f64],
     multi_time_height: u64,
 ) -> anyhow::Result<()> {
-    if multi_size_heights.is_empty() && multi_time_stamps.is_empty() {
+    if multi_size_heights.is_empty() && multi_time_percentages.is_empty() {
         return Ok(());
     }
+    let duration = get_video_duration(input).await?;
 
     fs::create_dir_all(output_dir).await?;
     let input_str = input.to_string_lossy();
@@ -57,25 +63,56 @@ pub async fn generate_video_thumbnails(
     let mut input_idx = 0;
 
     // Multi-time thumbnails
-    for (i, &ts) in multi_time_stamps.iter().enumerate() {
-        args.extend(["-ss".to_string(), ts.to_string(), "-i".to_string(), input_str.clone().to_string()]);
+    for (i, &percentage) in multi_time_percentages.iter().enumerate() {
+        let timestamp = percentage / 100. * duration;
+        args.extend([
+            "-ss".to_string(),
+            timestamp.to_string(),
+            "-i".to_string(),
+            input_str.clone().to_string(),
+        ]);
         let out_label = format!("[out_ts{i}]");
-        filter_complex.push_str(&format!("[{input_idx}:v]scale=-1:{multi_time_height}{out_label};"));
-        let out_path = output_dir.join(format!("{ts}s.{ext}"));
-        map_args.extend(["-map".into(), out_label, "-frames:v".into(), "1".into(), out_path.to_string_lossy().to_string()]);
+        filter_complex.push_str(&format!(
+            "[{input_idx}:v]scale=-1:{multi_time_height}{out_label};"
+        ));
+        let out_path = output_dir.join(format!("{percentage:.0}_percent.{ext}"));
+        map_args.extend([
+            "-map".into(),
+            out_label,
+            "-frames:v".into(),
+            "1".into(),
+            out_path.to_string_lossy().to_string(),
+        ]);
         input_idx += 1;
     }
 
     // Multi-size thumbnails
     if !multi_size_heights.is_empty() {
-        args.extend(["-ss".to_string(), multi_size_time.to_string(), "-i".to_string(), input_str.to_string()]);
-        let split_labels: String = (0..multi_size_heights.len()).map(|i| format!("[ms{i}]")).collect();
-        filter_complex.push_str(&format!("[{input_idx}:v]split={}{};", multi_size_heights.len(), split_labels));
+        args.extend([
+            "-ss".to_string(),
+            multi_size_time.to_string(),
+            "-i".to_string(),
+            input_str.to_string(),
+        ]);
+        let split_labels: String = (0..multi_size_heights.len())
+            .map(|i| format!("[ms{i}]"))
+            .collect();
+        filter_complex.push_str(&format!(
+            "[{input_idx}:v]split={}{};",
+            multi_size_heights.len(),
+            split_labels
+        ));
         for (i, &h) in multi_size_heights.iter().enumerate() {
             let out_label = format!("[out_ms{i}]");
             filter_complex.push_str(&format!("[ms{i}]scale=-1:{h}{out_label};"));
             let out_path = output_dir.join(format!("{h}p.{ext}"));
-            map_args.extend(["-map".into(), out_label, "-frames:v".into(), "1".into(), out_path.to_string_lossy().to_string()]);
+            map_args.extend([
+                "-map".into(),
+                out_label,
+                "-frames:v".into(),
+                "1".into(),
+                out_path.to_string_lossy().to_string(),
+            ]);
         }
     }
 
