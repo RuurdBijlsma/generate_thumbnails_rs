@@ -112,9 +112,7 @@ pub async fn generate_video_thumbnails(
         let ts = (pct as f64) / 100. * duration;
         args.extend(["-ss".into(), ts.to_string(), "-i".into(), input_str.clone()]);
         let out_label = format!("[out_ts{i}]");
-        filters.push(format!(
-            "[{input_idx}:v]scale=-1:{time_height}{out_label}"
-        ));
+        filters.push(format!("[{input_idx}:v]scale=-1:{time_height}{out_label}"));
         let out = output_dir.join(format!("{pct:.0}_percent.{thumb_ext}"));
         maps.extend(map_still(&out_label, &out));
         input_idx += 1;
