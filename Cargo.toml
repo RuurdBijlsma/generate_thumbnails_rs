@@ -2,6 +2,21 @@
 name = "ruurd_photos_thumbnail_generation"
 version = "0.1.0"
 edition = "2024"
+license = "Apache-2.0"
+description = "Generate thumbnails for video/photo files, to be used for a Google Photos alternative."
+authors = ["Ruurd Bijlsma <ruurd@bijlsma.dev>"]
+homepage = "https://github.com/ruurdbijlsma/generate_thumbnails"
+repository = "https://github.com/ruurdbijlsma/generate_thumbnails"
+readme = "README.md"
+keywords = ["media", "photo", "video", "thumbnail"]
+documentation = "https://docs.rs/ruurd_photos_thumbnail_generation/latest/ruurd_photos_thumbnail_generation/index.html"
+exclude = [
+    "assets",
+    ".github",
+    "checks",
+    ".idea",
+]
+categories = ["multimedia::images", "multimedia::video"]
 
 [dependencies]
 tokio = { version = "1.47.1", features = ["full"] }
