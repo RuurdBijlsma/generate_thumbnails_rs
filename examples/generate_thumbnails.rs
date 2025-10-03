@@ -1,10 +1,13 @@
 use anyhow::Result;
-use std::path::Path;
+use futures::stream::{self, StreamExt};
+use ruurd_photos_thumbnail_generation::{generate_thumbnails, OutputOptions, VideoOutputFormat};
+use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio_retry::strategy::FixedInterval;
 use tokio_retry::Retry;
 use walkdir::WalkDir;
-use ruurd_photos_thumbnail_generation::{generate_thumbnails, OutputOptions, VideoOutputFormat};
+
+const CONCURRENT_FILES: usize = 4;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,25 +33,35 @@ async fn main() -> Result<()> {
         ],
     };
 
-    for entry in WalkDir::new(source_folder)
+    let files_to_process: Vec<PathBuf> = WalkDir::new(source_folder)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
-    {
-        println!("Processing file: {:?}", entry.path());
-        let retry_strategy = FixedInterval::from_millis(500).take(3);
-        let result = Retry::spawn(retry_strategy, || async {
-            generate_thumbnails(entry.path(), thumbs_dir, &config).await
-        })
-        .await;
-        if let Err(e) = result {
-            eprintln!(
-                "Failed to process file {:?} after multiple attempts: {}",
-                entry.path(),
-                e
-            );
-        }
-    }
+        .map(|e| e.into_path())
+        .collect();
 
+    let processing_tasks = stream::iter(files_to_process)
+        .map(|path| {
+            let config = config.clone();
+            let thumbs_dir = thumbs_dir.to_path_buf();
+
+            tokio::spawn(async move {
+                println!("Processing file: {:?}", &path);
+                let retry_strategy = FixedInterval::from_millis(500).take(3);
+                let result = Retry::spawn(retry_strategy, || async {
+                    generate_thumbnails(&path, &thumbs_dir, &config).await
+                })
+                .await;
+                if let Err(e) = result {
+                    eprintln!(
+                        "Failed to process file {:?} after multiple attempts: {}",
+                        &path, e
+                    );
+                }
+            })
+        })
+        .buffer_unordered(CONCURRENT_FILES);
+
+    processing_tasks.for_each(|_| async {}).await;
     Ok(())
 }

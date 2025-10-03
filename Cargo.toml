@@ -26,3 +26,4 @@ tokio-retry = "0.3.0"
 serde_json = "1.0.145"
 serde = { version = "1.0.228", features = ["derive"] }
 temp-dir = "0.1.16"
+futures = "0.3.31"
