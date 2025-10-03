@@ -37,7 +37,9 @@ pub async fn run_ffprobe<S: AsRef<OsStr>>(args: &[S]) -> anyhow::Result<String> 
 
 /// Gets the duration of a video file in seconds.
 pub async fn get_video_duration(video_path: &Path) -> anyhow::Result<f64> {
-    let video_path_str = video_path.as_os_str().to_str().unwrap();
+    let Some(video_path_str) = video_path.as_os_str().to_str() else {
+        return Err(anyhow::anyhow!("ffprobe video path is not valid UTF-8"));
+    };
 
     let args = &[
         "-v",

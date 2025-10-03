@@ -196,7 +196,6 @@ pub async fn generate_video_thumbnails(
         args.extend(maps);
     }
 
-    println!("{:?}", args.join(" "));
     run_ffmpeg(&args).await
 }
 
@@ -254,6 +253,7 @@ pub async fn generate_thumbnails(
 
     let output_folder = thumbs_dir.join(filename);
     move_dir_contents(temp_out_dir, &output_folder).await?;
+    temp_dir.cleanup()?;
 
     Ok(())
 }

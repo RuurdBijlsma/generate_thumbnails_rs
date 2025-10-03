@@ -8,8 +8,8 @@ use ruurd_photos_thumbnail_generation::{generate_thumbnails, OutputOptions, Vide
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let source_folder = Path::new("../assets");
-    let thumbs_dir = Path::new("../thumbs");
+    let source_folder = Path::new("assets");
+    let thumbs_dir = Path::new("thumbs");
     fs::create_dir_all(&thumbs_dir).await?;
 
     let config = OutputOptions {
