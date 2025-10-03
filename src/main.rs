@@ -10,6 +10,11 @@ use tokio_retry::strategy::FixedInterval;
 use tokio_retry::Retry;
 use walkdir::WalkDir;
 
+// todo:
+// process to temp folder, copy when success
+// webm outputs
+// clean up code
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let photo_extensions = ["jpg", "jpeg", "png", "gif", "tiff", "tga"];
@@ -25,8 +30,9 @@ async fn main() -> Result<()> {
 
     let sizes = &[240, 480, 1080];
     let thumb_time = 0.5;
-    let video_percentages = &[0., 20., 40., 60., 80., 98.];
+    let video_percentages = &[0., 33., 66., 98.];
     let video_thumb_height = 720;
+    let video_vid_output_sizes_and_qualities = &[(144, 40), (480, 35)];
 
     for entry in WalkDir::new(source_folder)
         .into_iter()
@@ -62,13 +68,13 @@ async fn main() -> Result<()> {
                         thumb_time,
                         video_percentages,
                         video_thumb_height,
+                        video_vid_output_sizes_and_qualities,
                     )
                     .await
                 })
                 .await
             } else {
                 println!("Skipping file: {:?}", entry.path());
-                // Not a file type we need to process, so we mark it as success.
                 Ok(())
             };
 
