@@ -21,20 +21,19 @@
 //! ## Example
 //!
 //! ```no_run
-//! use std::path::Path;
 //! use ruurd_photos_thumbnail_generation::{generate_thumbnails, OutputOptions, VideoOutputFormat};
-//! use anyhow::Result;
+//! use std::path::Path;
 //!
 //! #[tokio::main]
-//! async fn main() -> Result<()> {
+//! async fn main() -> anyhow::Result<()> {
 //!     let source_file = Path::new("path/to/video.mp4");
 //!     let output_dir = Path::new("path/to/thumbnails");
 //!
 //!     let config = OutputOptions {
 //!         thumb_format: "avif".to_string(),
-//!         heights: vec!,
+//!         heights: vec![240, 480, 1080],
 //!         thumb_time: 1.5, // seconds
-//!         percentages: vec!,
+//!         percentages: vec![0, 33, 66, 99],
 //!         height: 720,
 //!         output_videos: vec![
 //!             VideoOutputFormat {
