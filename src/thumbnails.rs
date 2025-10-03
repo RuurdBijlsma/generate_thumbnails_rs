@@ -1,41 +1,56 @@
 use crate::ffmpeg::run_ffmpeg;
 use crate::ffprobe::get_video_duration;
-use anyhow::Context;
+use anyhow::{Context, Result};
 use std::path::Path;
 use tokio::fs;
+
+fn path_str(p: &Path) -> String {
+    p.to_string_lossy().into_owned()
+}
+
+fn map_still(label: &str, out: &Path) -> Vec<String> {
+    vec![
+        "-map".into(),
+        label.into(),
+        "-frames:v".into(),
+        "1".into(),
+        path_str(out),
+    ]
+}
 
 pub async fn generate_image_thumbnails(
     input: &Path,
     output_dir: &Path,
     heights: &[u64],
     ext: &str,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     if heights.is_empty() {
         return Ok(());
     }
 
     fs::create_dir_all(output_dir).await?;
-
     let input_str = input.to_str().context("invalid input path")?;
-    let split_labels: String = (0..heights.len()).map(|i| format!("[v{i}]")).collect();
-    let mut filter = format!("[0:v]split={}{};", heights.len(), split_labels);
-    for (i, &h) in heights.iter().enumerate() {
-        filter.push_str(&format!("[v{i}]scale=-1:{h}[out{i}];"));
-    }
-    filter.pop();
 
-    let mut args = vec!["-y".to_string(), "-i".to_string(), input_str.to_string()];
-    args.push("-filter_complex".into());
-    args.push(filter);
+    let split_labels: Vec<String> = (0..heights.len()).map(|i| format!("[v{i}]")).collect();
+    let mut filter_parts = vec![format!(
+        "[0:v]split={}{}",
+        heights.len(),
+        split_labels.join(""),
+    )];
+
+    let mut args = vec!["-y".into(), "-i".into(), input_str.into()];
+    let mut map_args = Vec::new();
 
     for (i, &h) in heights.iter().enumerate() {
+        let out_label = format!("[out{i}]");
+        filter_parts.push(format!("[v{i}]scale=-1:{h}{out_label}"));
         let out = output_dir.join(format!("{h}.{ext}"));
-        args.extend([
-            "-map".into(),
-            format!("[out{i}]"),
-            out.to_string_lossy().to_string(),
-        ]);
+        map_args.extend(map_still(&out_label, &out));
     }
+
+    args.push("-filter_complex".into());
+    args.push(filter_parts.join(";"));
+    args.extend(map_args);
 
     run_ffmpeg(&args).await
 }
@@ -49,7 +64,7 @@ pub async fn generate_video_thumbnails(
     multi_time_percentages: &[f64],
     multi_time_height: u64,
     output_sizes_and_qualities: &[(u64, u64)],
-) -> anyhow::Result<()> {
+) -> Result<()> {
     if multi_size_heights.is_empty()
         && multi_time_percentages.is_empty()
         && output_sizes_and_qualities.is_empty()
@@ -57,136 +72,101 @@ pub async fn generate_video_thumbnails(
         return Ok(());
     }
 
+    fs::create_dir_all(output_dir).await?;
+    let input_str = path_str(input);
     let duration = get_video_duration(input).await?;
 
-    fs::create_dir_all(output_dir).await?;
-    let input_str = input.to_string_lossy();
-
-    let mut args = vec!["-y".to_string()];
-    let mut filter_complex = String::new();
-    let mut map_args = Vec::new();
+    let mut args = vec!["-y".into()];
+    let mut filters = Vec::new();
+    let mut maps = Vec::new();
     let mut input_idx = 0;
 
-    // --- 1. Multi-time thumbnails ---
-    for (i, &percentage) in multi_time_percentages.iter().enumerate() {
-        let timestamp = percentage / 100. * duration;
-        args.extend([
-            "-ss".to_string(),
-            timestamp.to_string(),
-            "-i".to_string(),
-            input_str.clone().to_string(),
-        ]);
+    // 1. time-based stills
+    for (i, &pct) in multi_time_percentages.iter().enumerate() {
+        let ts = pct / 100. * duration;
+        args.extend(["-ss".into(), ts.to_string(), "-i".into(), input_str.clone()]);
         let out_label = format!("[out_ts{i}]");
-        filter_complex.push_str(&format!(
-            "[{input_idx}:v]scale=-1:{multi_time_height}{out_label};"
+        filters.push(format!(
+            "[{input_idx}:v]scale=-1:{multi_time_height}{out_label}"
         ));
-        let out_path = output_dir.join(format!("{percentage:.0}_percent.{thumb_ext}"));
-        map_args.extend([
-            "-map".into(),
-            out_label,
-            "-frames:v".into(),
-            "1".into(),
-            out_path.to_string_lossy().to_string(),
-        ]);
+        let out = output_dir.join(format!("{pct:.0}_percent.{thumb_ext}"));
+        maps.extend(map_still(&out_label, &out));
         input_idx += 1;
     }
 
-    // --- 2. Multi-size thumbnails ---
+    // 2. multi-size stills at fixed time
     if !multi_size_heights.is_empty() {
         args.extend([
-            "-ss".to_string(),
+            "-ss".into(),
             multi_size_time.to_string(),
-            "-i".to_string(),
-            input_str.to_string(),
+            "-i".into(),
+            input_str.clone(),
         ]);
-        let split_labels: String = (0..multi_size_heights.len())
+        let split_labels: Vec<String> = (0..multi_size_heights.len())
             .map(|i| format!("[ms{i}]"))
             .collect();
-        filter_complex.push_str(&format!(
-            "[{input_idx}:v]split={}{};",
+        filters.push(format!(
+            "[{input_idx}:v]split={}{}",
             multi_size_heights.len(),
-            split_labels
+            split_labels.join("")
         ));
         for (i, &h) in multi_size_heights.iter().enumerate() {
             let out_label = format!("[out_ms{i}]");
-            filter_complex.push_str(&format!("[ms{i}]scale=-1:{h}{out_label};"));
-            let out_path = output_dir.join(format!("{h}p.{thumb_ext}"));
-            map_args.extend([
-                "-map".into(),
-                out_label,
-                "-frames:v".into(),
-                "1".into(),
-                out_path.to_string_lossy().to_string(),
-            ]);
+            filters.push(format!("[ms{i}]scale=-1:{h}{out_label}"));
+            let out = output_dir.join(format!("{h}p.{thumb_ext}"));
+            maps.extend(map_still(&out_label, &out));
         }
         input_idx += 1;
     }
 
-    // --- 3. Multi-resolution WebM video export ---
+    // 3. multi-res webm
     if !output_sizes_and_qualities.is_empty() {
-        // Add full input for transcoding (no -ss)
-        args.extend(["-i".to_string(), input_str.to_string()]);
-
-        // Split video
-        let video_split_labels: String = (0..output_sizes_and_qualities.len())
+        args.extend(["-i".into(), input_str.clone()]);
+        let vlabels: Vec<String> = (0..output_sizes_and_qualities.len())
             .map(|i| format!("[v{i}]"))
             .collect();
-        filter_complex.push_str(&format!(
-            "[{input_idx}:v:0]split={}{};",
-            output_sizes_and_qualities.len(),
-            video_split_labels
-        ));
-
-        // Split audio (using a:0? to match first audio if present)
-        let audio_split_labels: String = (0..output_sizes_and_qualities.len())
+        let alabels: Vec<String> = (0..output_sizes_and_qualities.len())
             .map(|i| format!("[a{i}]"))
             .collect();
-        filter_complex.push_str(&format!(
-            "[{input_idx}:a:0?]asplit={}{};",
+        filters.push(format!(
+            "[{input_idx}:v:0]split={}{}",
             output_sizes_and_qualities.len(),
-            audio_split_labels
+            vlabels.join("")
+        ));
+        filters.push(format!(
+            "[{input_idx}:a:0?]asplit={}{}",
+            output_sizes_and_qualities.len(),
+            alabels.join("")
         ));
 
-        // Process each resolution
-        for (i, (height, quality)) in output_sizes_and_qualities.iter().enumerate() {
-            let out_video_label = format!("[out_v{i}]");
-            let out_audio_label = format!("[a{i}]");
-            let out_path = output_dir.join(format!("{height}p.webm"));
-
-            // Scale video (-2:h ensures width is even, needed by some encoders)
-            filter_complex.push_str(&format!("[v{i}]scale=-2:{height}{out_video_label};"));
-
-            map_args.extend([
+        for (i, (h, q)) in output_sizes_and_qualities.iter().enumerate() {
+            let vout = format!("[out_v{i}]");
+            filters.push(format!("[v{i}]scale=-2:{h}{vout}"));
+            let out = output_dir.join(format!("{h}p.webm"));
+            maps.extend([
                 "-map".into(),
-                out_video_label, // Map scaled video
+                vout,
                 "-map".into(),
-                out_audio_label, // Map split audio
-                // Video Settings
+                alabels[i].clone(),
                 "-c:v".into(),
                 "libvpx-vp9".into(),
                 "-crf".into(),
-                quality.to_string().into(),
+                q.to_string(),
                 "-b:v".into(),
                 "0".into(),
-                // Audio Settings
                 "-c:a".into(),
                 "libopus".into(),
                 "-b:a".into(),
                 "64k".into(),
-                out_path.to_string_lossy().to_string(),
+                path_str(&out),
             ]);
         }
     }
 
-    // --- Finalize ---
-    if filter_complex.ends_with(';') {
-        filter_complex.pop();
-    }
-
-    if !filter_complex.is_empty() {
+    if !filters.is_empty() {
         args.push("-filter_complex".into());
-        args.push(filter_complex);
-        args.extend(map_args);
+        args.push(filters.join(";"));
+        args.extend(maps);
     }
 
     println!("{:?}", args.join(" "));
