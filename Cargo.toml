@@ -1,5 +1,5 @@
 [package]
-name = "generate_media_thumbnails"
+name = "ruurd_photos_thumbnail_generation"
 version = "0.1.0"
 edition = "2024"
 

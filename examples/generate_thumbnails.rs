@@ -1,20 +1,15 @@
-mod ffmpeg;
-mod ffprobe;
-mod thumbnails;
-mod utils;
-
-use crate::thumbnails::{generate_thumbnails, OutputOptions, VideoOutputFormat};
 use anyhow::Result;
 use std::path::Path;
 use tokio::fs;
 use tokio_retry::strategy::FixedInterval;
 use tokio_retry::Retry;
 use walkdir::WalkDir;
+use ruurd_photos_thumbnail_generation::{generate_thumbnails, OutputOptions, VideoOutputFormat};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let source_folder = Path::new("assets");
-    let thumbs_dir = Path::new("thumbs");
+    let source_folder = Path::new("../assets");
+    let thumbs_dir = Path::new("../thumbs");
     fs::create_dir_all(&thumbs_dir).await?;
 
     let config = OutputOptions {
