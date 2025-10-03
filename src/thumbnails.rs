@@ -1,26 +1,37 @@
 use crate::ffmpeg::run_ffmpeg;
 use crate::ffprobe::get_video_duration;
+use crate::utils::move_dir_contents;
 use anyhow::{Context, Result};
-use std::path::Path;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use temp_dir::TempDir;
 use tokio::fs;
-use crate::utils::move_dir_contents;
 
-
+/// Defines the output format for a generated video preview.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VideoOutputFormat {
+    /// The height of the output video in pixels. The width will be scaled automatically to maintain aspect ratio.
     pub height: u64,
+    /// The quality setting for the video encoding. For VP9, this is the CRF (Constant Rate Factor) value.
     pub quality: u64,
 }
 
+/// A comprehensive configuration for generating thumbnails for both images and videos.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OutputOptions {
+    /// The file extension for still image thumbnails (e.g., "avif", "jpg").
     pub thumb_format: String,
+    /// A vector of heights for generating multiple thumbnails.
+    /// - For videos, these are the heights for stills taken at `thumb_time`.
+    /// - For images, these are the heights for the generated thumbnails.
     pub heights: Vec<u64>,
+    /// The specific time in seconds from the start of the video to generate multi-size stills from.
     pub thumb_time: f64,
+    /// A vector of percentages of the video's total duration at which to capture still images.
     pub percentages: Vec<u64>,
+    /// The height in pixels for the thumbnails generated based on the `percentages` field.
     pub height: u64,
+    /// A list of video formats to generate as previews from the source video.
     pub output_videos: Vec<VideoOutputFormat>,
 }
 
@@ -101,7 +112,9 @@ pub async fn generate_video_thumbnails(
         let ts = (pct as f64) / 100. * duration;
         args.extend(["-ss".into(), ts.to_string(), "-i".into(), input_str.clone()]);
         let out_label = format!("[out_ts{i}]");
-        filters.push(format!("[{input_idx}:v]scale=-1:{time_height}{out_label}"));
+        filters.push(format!(
+            "[{input_idx}:v]scale=-1:{time_height}{out_label}"
+        ));
         let out = output_dir.join(format!("{pct:.0}_percent.{thumb_ext}"));
         maps.extend(map_still(&out_label, &out));
         input_idx += 1;
@@ -187,7 +200,34 @@ pub async fn generate_video_thumbnails(
     run_ffmpeg(&args).await
 }
 
-pub async fn generate_thumbnails(file: &Path, thumbs_dir: &Path, config: &OutputOptions) -> Result<()> {
+/// Generates thumbnails for a given media file (image or video) based on the provided configuration.
+///
+/// This function detects the file type based on its extension and then calls the appropriate
+/// thumbnail generation logic.
+///
+/// - For supported image types, it generates resized thumbnails.
+/// - For supported video types, it can generate a complex combination of still images and video previews.
+///
+/// The generated files are first created in a temporary directory and then moved to a dedicated
+/// subfolder within the `thumbs_dir`, named after the original file.
+///
+/// # Arguments
+///
+/// * `file` - The path to the source image or video file.
+/// * `thumbs_dir` - The base directory where the output subfolder will be created.
+/// * `config` - An `OutputOptions` struct detailing what thumbnails to generate.
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - File paths are invalid.
+/// - The `ffmpeg` or `ffprobe` commands fail.
+/// - There are issues with file I/O, such as creating directories or moving files.
+pub async fn generate_thumbnails(
+    file: &Path,
+    thumbs_dir: &Path,
+    config: &OutputOptions,
+) -> Result<()> {
     let Some(extension) = file.extension().and_then(|s| s.to_str()) else {
         return Ok(());
     };
