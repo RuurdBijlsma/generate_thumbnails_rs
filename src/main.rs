@@ -4,10 +4,11 @@ mod thumbnails;
 
 use crate::thumbnails::{generate_image_thumbnails, generate_video_thumbnails};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tokio::fs;
-use tokio_retry::strategy::FixedInterval;
 use tokio_retry::Retry;
+use tokio_retry::strategy::FixedInterval;
 use walkdir::WalkDir;
 
 // todo:
@@ -15,76 +16,91 @@ use walkdir::WalkDir;
 // webm outputs
 // clean up code
 
-#[tokio::main]
-async fn main() -> Result<()> {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct VideoOutputFormat {
+    height: u64,
+    quality: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputOptions {
+    thumb_format: String,
+    heights: Vec<u64>,
+    thumb_time: f64,
+    percentages: Vec<u64>,
+    height: u64,
+    output_videos: Vec<VideoOutputFormat>,
+}
+
+async fn generate_thumbnails(file: &Path, thumbs_dir: &Path, config: &OutputOptions) -> Result<()> {
+    let Some(extension) = file.extension().and_then(|s| s.to_str()) else {
+        return Ok(());
+    };
+    let Some(filename) = file.file_name().and_then(|s| s.to_str()) else {
+        return Ok(());
+    };
+
     let photo_extensions = ["jpg", "jpeg", "png", "gif", "tiff", "tga"];
     let video_extensions = [
         "mp4", "webm", "av1", "3gp", "mov", "mkv", "flv", "m4v", "m4p",
     ];
 
-    let source_folder = Path::new("assets");
-    let image_thumbs_dir = Path::new("thumbs/photo");
-    let video_thumbs_dir = Path::new("thumbs/video");
-    fs::create_dir_all(&image_thumbs_dir).await?;
-    fs::create_dir_all(&video_thumbs_dir).await?;
+    let extension = extension.to_lowercase();
+    let output_folder = thumbs_dir.join(filename);
+    fs::create_dir_all(&output_folder).await?;
 
-    let sizes = &[240, 480, 1080];
-    let thumb_time = 0.5;
-    let video_percentages = &[0., 33., 66., 98.];
-    let video_thumb_height = 720;
-    let video_vid_output_sizes_and_qualities = &[(144, 40), (480, 35)];
+    if photo_extensions.contains(&extension.as_str()) {
+        generate_image_thumbnails(file, &output_folder, &config.heights, "avif").await?
+    } else if video_extensions.contains(&extension.as_str()) {
+        generate_video_thumbnails(file, &output_folder, config).await?
+    } else {
+        println!("Skipping file: {:?}", file);
+    }
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let source_folder = Path::new("assets");
+    let thumbs_dir = Path::new("thumbs");
+    fs::create_dir_all(&thumbs_dir).await?;
+
+    let config = OutputOptions {
+        thumb_format: "avif".to_string(),
+        heights: vec![240, 480, 1080],
+        thumb_time: 0.5,
+        percentages: vec![0, 33, 66, 99],
+        height: 720,
+        output_videos: vec![
+            VideoOutputFormat {
+                height: 480,
+                quality: 35,
+            },
+            VideoOutputFormat {
+                height: 144,
+                quality: 40,
+            },
+        ],
+    };
 
     for entry in WalkDir::new(source_folder)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
     {
-        if let Some(extension) = entry.path().extension().and_then(|s| s.to_str())
-            && let Some(filename) = entry.path().file_name().and_then(|s| s.to_str())
-        {
-            let extension = extension.to_lowercase();
-            println!("Processing file: {:?}", entry.path());
-
-            let retry_strategy = FixedInterval::from_millis(500).take(3);
-
-            let result = if photo_extensions.contains(&extension.as_str()) {
-                let output_folder = image_thumbs_dir.join(filename);
-                fs::create_dir_all(&output_folder).await?;
-
-                Retry::spawn(retry_strategy, || async {
-                    generate_image_thumbnails(entry.path(), &output_folder, sizes, "avif").await
-                })
-                .await
-            } else if video_extensions.contains(&extension.as_str()) {
-                let output_folder = video_thumbs_dir.join(filename);
-                fs::create_dir_all(&output_folder).await?;
-
-                Retry::spawn(retry_strategy, || async {
-                    generate_video_thumbnails(
-                        entry.path(),
-                        &output_folder,
-                        "avif",
-                        sizes,
-                        thumb_time,
-                        video_percentages,
-                        video_thumb_height,
-                        video_vid_output_sizes_and_qualities,
-                    )
-                    .await
-                })
-                .await
-            } else {
-                println!("Skipping file: {:?}", entry.path());
-                Ok(())
-            };
-
-            if let Err(e) = result {
-                eprintln!(
-                    "Failed to process file {:?} after multiple attempts: {}",
-                    entry.path(),
-                    e
-                );
-            }
+        println!("Processing file: {:?}", entry.path());
+        let retry_strategy = FixedInterval::from_millis(500).take(3);
+        let result = Retry::spawn(retry_strategy, || async {
+            generate_thumbnails(entry.path(), thumbs_dir, &config).await
+        })
+        .await;
+        if let Err(e) = result {
+            eprintln!(
+                "Failed to process file {:?} after multiple attempts: {}",
+                entry.path(),
+                e
+            );
         }
     }
 

@@ -1,3 +1,4 @@
+use crate::OutputOptions;
 use crate::ffmpeg::run_ffmpeg;
 use crate::ffprobe::get_video_duration;
 use anyhow::{Context, Result};
@@ -58,16 +59,9 @@ pub async fn generate_image_thumbnails(
 pub async fn generate_video_thumbnails(
     input: &Path,
     output_dir: &Path,
-    thumb_ext: &str,
-    multi_size_heights: &[u64],
-    multi_size_time: f64,
-    multi_time_percentages: &[f64],
-    multi_time_height: u64,
-    output_sizes_and_qualities: &[(u64, u64)],
+    config: &OutputOptions,
 ) -> Result<()> {
-    if multi_size_heights.is_empty()
-        && multi_time_percentages.is_empty()
-        && output_sizes_and_qualities.is_empty()
+    if config.heights.is_empty() && config.percentages.is_empty() && config.output_videos.is_empty()
     {
         return Ok(());
     }
@@ -80,37 +74,37 @@ pub async fn generate_video_thumbnails(
     let mut filters = Vec::new();
     let mut maps = Vec::new();
     let mut input_idx = 0;
+    let time_height = config.height;
+    let thumb_ext = config.thumb_format.clone();
 
     // 1. time-based stills
-    for (i, &pct) in multi_time_percentages.iter().enumerate() {
-        let ts = pct / 100. * duration;
+    for (i, &pct) in config.percentages.iter().enumerate() {
+        let ts = (pct as f64) / 100. * duration;
         args.extend(["-ss".into(), ts.to_string(), "-i".into(), input_str.clone()]);
         let out_label = format!("[out_ts{i}]");
-        filters.push(format!(
-            "[{input_idx}:v]scale=-1:{multi_time_height}{out_label}"
-        ));
+        filters.push(format!("[{input_idx}:v]scale=-1:{time_height}{out_label}"));
         let out = output_dir.join(format!("{pct:.0}_percent.{thumb_ext}"));
         maps.extend(map_still(&out_label, &out));
         input_idx += 1;
     }
 
     // 2. multi-size stills at fixed time
-    if !multi_size_heights.is_empty() {
+    if !config.heights.is_empty() {
         args.extend([
             "-ss".into(),
-            multi_size_time.to_string(),
+            config.thumb_time.to_string(),
             "-i".into(),
             input_str.clone(),
         ]);
-        let split_labels: Vec<String> = (0..multi_size_heights.len())
+        let split_labels: Vec<String> = (0..config.heights.len())
             .map(|i| format!("[ms{i}]"))
             .collect();
         filters.push(format!(
             "[{input_idx}:v]split={}{}",
-            multi_size_heights.len(),
+            config.heights.len(),
             split_labels.join("")
         ));
-        for (i, &h) in multi_size_heights.iter().enumerate() {
+        for (i, &h) in config.heights.iter().enumerate() {
             let out_label = format!("[out_ms{i}]");
             filters.push(format!("[ms{i}]scale=-1:{h}{out_label}"));
             let out = output_dir.join(format!("{h}p.{thumb_ext}"));
@@ -120,27 +114,28 @@ pub async fn generate_video_thumbnails(
     }
 
     // 3. multi-res webm
-    if !output_sizes_and_qualities.is_empty() {
+    if !config.output_videos.is_empty() {
         args.extend(["-i".into(), input_str.clone()]);
-        let vlabels: Vec<String> = (0..output_sizes_and_qualities.len())
+        let vlabels: Vec<String> = (0..config.output_videos.len())
             .map(|i| format!("[v{i}]"))
             .collect();
-        let alabels: Vec<String> = (0..output_sizes_and_qualities.len())
+        let alabels: Vec<String> = (0..config.output_videos.len())
             .map(|i| format!("[a{i}]"))
             .collect();
         filters.push(format!(
             "[{input_idx}:v:0]split={}{}",
-            output_sizes_and_qualities.len(),
+            config.output_videos.len(),
             vlabels.join("")
         ));
         filters.push(format!(
             "[{input_idx}:a:0?]asplit={}{}",
-            output_sizes_and_qualities.len(),
+            config.output_videos.len(),
             alabels.join("")
         ));
 
-        for (i, (h, q)) in output_sizes_and_qualities.iter().enumerate() {
+        for (i, hq_config) in config.output_videos.iter().enumerate() {
             let vout = format!("[out_v{i}]");
+            let h = hq_config.height;
             filters.push(format!("[v{i}]scale=-2:{h}{vout}"));
             let out = output_dir.join(format!("{h}p.webm"));
             maps.extend([
@@ -151,7 +146,7 @@ pub async fn generate_video_thumbnails(
                 "-c:v".into(),
                 "libvpx-vp9".into(),
                 "-crf".into(),
-                q.to_string(),
+                hq_config.quality.to_string(),
                 "-b:v".into(),
                 "0".into(),
                 "-c:a".into(),
