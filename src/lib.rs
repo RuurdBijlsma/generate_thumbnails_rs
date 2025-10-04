@@ -41,6 +41,7 @@
 //!             .map(|x| x.to_string())
 //!             .collect(),
 //!         thumb_ext: "avif".to_string(),
+//!         transcode_ext: "webm".to_string(),
 //!         heights: vec![240, 480, 1080],
 //!         thumb_time: 1.5, // seconds
 //!         percentages: vec![0, 33, 66, 99],
@@ -51,6 +52,7 @@
 //!                 quality: 35,
 //!             },
 //!         ],
+//!         skip_if_exists: true,
 //!     };
 //!
 //!     if let Err(e) = generate_thumbnails(source_file, output_dir, &config).await {

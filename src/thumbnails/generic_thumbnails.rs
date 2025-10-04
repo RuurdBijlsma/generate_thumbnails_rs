@@ -73,7 +73,6 @@ async fn thumbs_exist(thumb_path: &Path, config: &ThumbOptions) -> Result<bool> 
 
     for filename in should_exist {
         if !fs::exists(thumb_path.join(filename.clone()))? {
-            println!("{filename:?} does not exist");
             return Ok(false);
         }
     }
@@ -117,7 +116,6 @@ pub async fn generate_thumbnails(
     };
     let output_folder = thumbs_dir.join(filename);
     if config.skip_if_exists && thumbs_exist(&output_folder, config).await? {
-        println!("All thumbs for {filename} exist! skipping");
         return Ok(());
     }
 
@@ -129,8 +127,6 @@ pub async fn generate_thumbnails(
         generate_photo_thumbnails(file, temp_out_dir, &config.heights, "avif").await?
     } else if config.video_extensions.contains(&extension) {
         generate_video_thumbnails(file, temp_out_dir, config).await?
-    } else {
-        println!("Skipping file: {:?}", file);
     }
 
     move_dir_contents(temp_out_dir, &output_folder).await?;
