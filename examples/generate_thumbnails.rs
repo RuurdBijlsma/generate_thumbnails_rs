@@ -1,10 +1,10 @@
 use anyhow::Result;
 use futures::stream::{self, StreamExt};
-use ruurd_photos_thumbnail_generation::{OutputOptions, VideoOutputFormat, generate_thumbnails};
+use ruurd_photos_thumbnail_generation::{generate_thumbnails, ThumbOptions, VideoOutputFormat};
 use std::path::{Path, PathBuf};
 use tokio::fs;
-use tokio_retry::Retry;
 use tokio_retry::strategy::FixedInterval;
+use tokio_retry::Retry;
 use walkdir::WalkDir;
 
 const CONCURRENT_FILES: usize = 4;
@@ -15,8 +15,19 @@ async fn main() -> Result<()> {
     let thumbs_dir = Path::new("thumbs");
     fs::create_dir_all(&thumbs_dir).await?;
 
-    let config = OutputOptions {
-        thumb_format: "avif".to_string(),
+    let config = ThumbOptions {
+        photo_extensions: ["jpg", "jpeg", "png", "gif", "tiff", "tga", "avif"]
+            .iter()
+            .map(|x| x.to_string())
+            .collect(),
+        video_extensions: [
+            "mp4", "webm", "av1", "3gp", "mov", "mkv", "flv", "m4v", "m4p",
+        ]
+        .iter()
+        .map(|x| x.to_string())
+        .collect(),
+        thumb_ext: "avif".to_string(),
+        transcode_ext: "webm".to_string(),
         heights: vec![240, 480, 1080],
         thumb_time: 0.5,
         percentages: vec![0, 33, 66, 99],
@@ -31,6 +42,7 @@ async fn main() -> Result<()> {
                 quality: 40,
             },
         ],
+        skip_if_exists: true,
     };
 
     let files_to_process: Vec<PathBuf> = WalkDir::new(source_folder)

@@ -5,7 +5,7 @@
 //!
 //! This crate provides a unified interface, `generate_thumbnails`, which can handle
 //! both image and video files based on their extension. The generation process is highly
-//! configurable through the `OutputOptions` struct, allowing for the creation of:
+//! configurable through the `ThumbOptions` struct, allowing for the creation of:
 //! - Multiple sizes of still images from a single timestamp in a video.
 //! - Stills from multiple timestamps (as percentages) in a video.
 //! - Lower-resolution video previews (e.g., WebM).
@@ -21,7 +21,7 @@
 //! ## Example
 //!
 //! ```no_run
-//! use ruurd_photos_thumbnail_generation::{generate_thumbnails, OutputOptions, VideoOutputFormat};
+//! use ruurd_photos_thumbnail_generation::{generate_thumbnails, ThumbOptions, VideoOutputFormat};
 //! use std::path::Path;
 //!
 //! #[tokio::main]
@@ -29,8 +29,18 @@
 //!     let source_file = Path::new("path/to/video.mp4");
 //!     let output_dir = Path::new("path/to/thumbnails");
 //!
-//!     let config = OutputOptions {
-//!         thumb_format: "avif".to_string(),
+//!     let config = ThumbOptions {
+//!         photo_extensions: vec!["jpg", "jpeg", "png", "gif", "tiff", "tga"]
+//!             .iter()
+//!             .map(|x| x.to_string())
+//!             .collect(),
+//!         video_extensions: vec![
+//!           "mp4", "webm", "av1", "3gp", "mov", "mkv", "flv", "m4v", "m4p",
+//!         ]
+//!             .iter()
+//!             .map(|x| x.to_string())
+//!             .collect(),
+//!         thumb_ext: "avif".to_string(),
 //!         heights: vec![240, 480, 1080],
 //!         thumb_time: 1.5, // seconds
 //!         percentages: vec![0, 33, 66, 99],
@@ -61,6 +71,6 @@ mod ffprobe;
 mod ffmpeg;
 
 // Re-export the primary configuration structs and the main function for easy access.
-pub use thumbnails::OutputOptions;
-pub use thumbnails::VideoOutputFormat;
-pub use thumbnails::generate_thumbnails;
+pub use thumbnails::generic_thumbnails::VideoOutputFormat;
+pub use thumbnails::generic_thumbnails::ThumbOptions;
+pub use thumbnails::generic_thumbnails::generate_thumbnails;
