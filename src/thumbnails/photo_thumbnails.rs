@@ -1,8 +1,8 @@
-use std::path::Path;
-use anyhow::Context;
-use tokio::fs;
 use crate::ffmpeg::run_ffmpeg;
 use crate::thumbnails::utils::map_still;
+use anyhow::Context;
+use std::path::Path;
+use tokio::fs;
 
 pub async fn generate_photo_thumbnails(
     input: &Path,

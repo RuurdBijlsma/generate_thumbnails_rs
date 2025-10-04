@@ -1,10 +1,10 @@
 use anyhow::Result;
 use futures::stream::{self, StreamExt};
-use ruurd_photos_thumbnail_generation::{generate_thumbnails, ThumbOptions, VideoOutputFormat};
+use ruurd_photos_thumbnail_generation::{ThumbOptions, VideoOutputFormat, generate_thumbnails};
 use std::path::{Path, PathBuf};
 use tokio::fs;
-use tokio_retry::strategy::FixedInterval;
 use tokio_retry::Retry;
+use tokio_retry::strategy::FixedInterval;
 use walkdir::WalkDir;
 
 const CONCURRENT_FILES: usize = 4;

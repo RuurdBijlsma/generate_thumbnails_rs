@@ -1,9 +1,9 @@
-use std::path::Path;
-use tokio::fs;
 use crate::ffmpeg::run_ffmpeg;
 use crate::ffprobe::get_video_duration;
 use crate::thumbnails::generic_thumbnails::ThumbOptions;
 use crate::thumbnails::utils::{map_still, path_str};
+use std::path::Path;
+use tokio::fs;
 
 pub async fn generate_video_thumbnails(
     input: &Path,

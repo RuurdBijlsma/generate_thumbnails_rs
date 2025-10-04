@@ -71,6 +71,6 @@ mod ffprobe;
 mod ffmpeg;
 
 // Re-export the primary configuration structs and the main function for easy access.
-pub use thumbnails::generic_thumbnails::VideoOutputFormat;
 pub use thumbnails::generic_thumbnails::ThumbOptions;
+pub use thumbnails::generic_thumbnails::VideoOutputFormat;
 pub use thumbnails::generic_thumbnails::generate_thumbnails;
