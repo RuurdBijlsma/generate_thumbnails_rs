@@ -1,9 +1,9 @@
-use anyhow::Context;
+use color_eyre::eyre::{Context, bail};
 use std::ffi::OsStr;
 use std::process::Stdio;
 use tokio::process::Command;
 
-pub async fn run_ffmpeg<S: AsRef<OsStr>>(args: &[S]) -> anyhow::Result<()> {
+pub async fn run_ffmpeg<S: AsRef<OsStr>>(args: &[S]) -> color_eyre::Result<()> {
     let output = Command::new("ffmpeg")
         .args(args)
         .stdout(Stdio::null())
@@ -16,6 +16,6 @@ pub async fn run_ffmpeg<S: AsRef<OsStr>>(args: &[S]) -> anyhow::Result<()> {
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("ffmpeg failed: {}", stderr.trim());
+        bail!("ffmpeg failed: {}", stderr.trim());
     }
 }

@@ -25,7 +25,7 @@
 //! use std::path::Path;
 //!
 //! #[tokio::main]
-//! async fn main() -> anyhow::Result<()> {
+//! async fn main() -> color_eyre::Result<()> {
 //!     let source_file = Path::new("path/to/video.mp4");
 //!     let output_dir = Path::new("path/to/thumbnails");
 //!

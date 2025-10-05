@@ -9,7 +9,7 @@ pub async fn generate_video_thumbnails(
     input: &Path,
     output_dir: &Path,
     config: &ThumbOptions,
-) -> anyhow::Result<()> {
+) -> color_eyre::Result<()> {
     if config.heights.is_empty() && config.percentages.is_empty() && config.output_videos.is_empty()
     {
         return Ok(());

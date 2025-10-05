@@ -1,7 +1,7 @@
 use crate::thumbnails::photo_thumbnails::generate_photo_thumbnails;
 use crate::thumbnails::video_thumbnails::generate_video_thumbnails;
 use crate::utils::move_dir_contents;
-use anyhow::Result;
+use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;

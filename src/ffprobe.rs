@@ -1,4 +1,4 @@
-use anyhow::Context;
+use color_eyre::eyre::{Context, bail};
 use serde::Deserialize;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -16,7 +16,7 @@ struct FormatInfo {
 }
 
 /// Executes ffprobe command and returns its stdout as a String.
-pub async fn run_ffprobe<S: AsRef<OsStr>>(args: &[S]) -> anyhow::Result<String> {
+pub async fn run_ffprobe<S: AsRef<OsStr>>(args: &[S]) -> color_eyre::Result<String> {
     let output = Command::new("ffprobe")
         .args(args)
         .stdout(Stdio::piped())
@@ -31,14 +31,14 @@ pub async fn run_ffprobe<S: AsRef<OsStr>>(args: &[S]) -> anyhow::Result<String> 
     } else {
         // If the command failed, create an error from the standard error output
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("ffprobe failed: {}", stderr.trim());
+        bail!("ffprobe failed: {}", stderr.trim());
     }
 }
 
 /// Gets the duration of a video file in seconds.
-pub async fn get_video_duration(video_path: &Path) -> anyhow::Result<f64> {
+pub async fn get_video_duration(video_path: &Path) -> color_eyre::Result<f64> {
     let Some(video_path_str) = video_path.as_os_str().to_str() else {
-        return Err(anyhow::anyhow!("ffprobe video path is not valid UTF-8"));
+        bail!("ffprobe video path is not valid UTF-8");
     };
 
     let args = &[

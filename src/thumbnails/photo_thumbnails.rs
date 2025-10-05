@@ -1,6 +1,6 @@
 use crate::ffmpeg::run_ffmpeg;
 use crate::thumbnails::utils::map_still;
-use anyhow::Context;
+use color_eyre::eyre::ContextCompat;
 use std::path::Path;
 use tokio::fs;
 
@@ -9,7 +9,7 @@ pub async fn generate_photo_thumbnails(
     output_dir: &Path,
     heights: &[u64],
     ext: &str,
-) -> anyhow::Result<()> {
+) -> color_eyre::Result<()> {
     if heights.is_empty() {
         return Ok(());
     }

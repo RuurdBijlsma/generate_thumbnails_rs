@@ -1,4 +1,4 @@
-use anyhow::Result;
+use color_eyre::Result;
 use futures::stream::{self, StreamExt};
 use ruurd_photos_thumbnail_generation::{ThumbOptions, VideoOutputFormat, generate_thumbnails};
 use std::path::{Path, PathBuf};

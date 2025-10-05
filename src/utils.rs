@@ -1,7 +1,7 @@
 use std::path::Path;
 use tokio::fs;
 
-pub async fn move_dir_contents(src: &Path, dst: &Path) -> anyhow::Result<()> {
+pub async fn move_dir_contents(src: &Path, dst: &Path) -> color_eyre::Result<()> {
     fs::create_dir_all(dst).await?;
     let mut entries = fs::read_dir(src).await?;
 
