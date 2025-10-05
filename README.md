@@ -24,7 +24,7 @@ The main way to use the crate is by creating an `ThumbOptions` configuration and
 Here is an example of how to process a directory of files:
 
 ```rust
-use anyhow::Result;
+use color_eyre::Result;
 use ruurd_photos_thumbnail_generation::{generate_thumbnails, ThumbOptions, VideoOutputFormat};
 use tokio::fs;
 use walkdir::WalkDir;
