@@ -12,10 +12,11 @@ const CONCURRENT_FILES: usize = 4;
 #[tokio::main]
 async fn main() -> Result<()> {
     let source_folder = Path::new("assets");
-    let thumbs_dir = Path::new("thumbs");
-    fs::create_dir_all(&thumbs_dir).await?;
+    let thumbnails_dir = Path::new("thumbs");
+    fs::create_dir_all(&thumbnails_dir).await?;
 
     let config = ThumbOptions {
+        thumbnails_dir: thumbnails_dir.to_path_buf(),
         photo_extensions: ["jpg", "jpeg", "png", "gif", "tiff", "tga", "avif"]
             .iter()
             .map(|x| x.to_string())
@@ -55,13 +56,12 @@ async fn main() -> Result<()> {
     let processing_tasks = stream::iter(files_to_process)
         .map(|path| {
             let config = config.clone();
-            let thumbs_dir = thumbs_dir.to_path_buf();
 
             tokio::spawn(async move {
                 println!("Processing file: {:?}", &path);
                 let retry_strategy = FixedInterval::from_millis(500).take(3);
                 let result = Retry::spawn(retry_strategy, || async {
-                    generate_thumbnails(&path, &thumbs_dir, &config).await
+                    generate_thumbnails(&path, &config).await
                 })
                 .await;
                 if let Err(e) = result {

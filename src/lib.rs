@@ -30,6 +30,7 @@
 //!     let output_dir = Path::new("path/to/thumbnails");
 //!
 //!     let config = ThumbOptions {
+//!         thumbnails_dir: output_dir.to_path_buf(),
 //!         photo_extensions: vec!["jpg", "jpeg", "png", "gif", "tiff", "tga"]
 //!             .iter()
 //!             .map(|x| x.to_string())
@@ -55,7 +56,7 @@
 //!         skip_if_exists: true,
 //!     };
 //!
-//!     if let Err(e) = generate_thumbnails(source_file, output_dir, &config).await {
+//!     if let Err(e) = generate_thumbnails(source_file, &config).await {
 //!         eprintln!("Failed to generate thumbnails: {}", e);
 //!     }
 //!
