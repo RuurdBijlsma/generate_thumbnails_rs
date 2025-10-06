@@ -4,7 +4,7 @@ use crate::utils::move_dir_contents;
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use temp_dir::TempDir;
 
 /// Defines the output format for a generated video preview.
@@ -19,8 +19,6 @@ pub struct VideoOutputFormat {
 /// A comprehensive configuration for generating thumbnails for both images and videos.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ThumbOptions {
-    /// Where to store thumbnails
-    pub thumbnails_dir: PathBuf,
     /// Which extensions are categorized as video
     pub video_extensions: Vec<String>,
     /// Which extensions are categorized as photos
@@ -44,8 +42,8 @@ pub struct ThumbOptions {
     pub skip_if_exists: bool,
 }
 
-async fn thumbs_exist(thumb_path: &Path, config: &ThumbOptions) -> Result<bool> {
-    let Some(extension) = thumb_path
+async fn thumbs_exist(file: &Path, thumb_folder: &Path, config: &ThumbOptions) -> Result<bool> {
+    let Some(extension) = file
         .extension()
         .and_then(|x| x.to_str())
         .map(|x| x.to_lowercase())
@@ -75,8 +73,8 @@ async fn thumbs_exist(thumb_path: &Path, config: &ThumbOptions) -> Result<bool> 
         }
     }
 
-    for filename in should_exist {
-        if !fs::exists(thumb_path.join(filename.clone()))? {
+    for thumb_filename in should_exist {
+        if !fs::exists(thumb_folder.join(thumb_filename.clone()))? {
             return Ok(false);
         }
     }
@@ -98,6 +96,7 @@ async fn thumbs_exist(thumb_path: &Path, config: &ThumbOptions) -> Result<bool> 
 /// # Arguments
 ///
 /// * `file` - The path to the source image or video file.
+/// * `out_folder` - Where to output the thumbnail files.
 /// * `config` - An `ThumbOptions` struct detailing what thumbnails to generate.
 ///
 /// # Errors
@@ -106,16 +105,16 @@ async fn thumbs_exist(thumb_path: &Path, config: &ThumbOptions) -> Result<bool> 
 /// - File paths are invalid.
 /// - The `ffmpeg` or `ffprobe` commands fail.
 /// - There are issues with file I/O, such as creating directories or moving files.
-pub async fn generate_thumbnails(file: &Path, config: &ThumbOptions) -> Result<()> {
+pub async fn generate_thumbnails(
+    file: &Path,
+    out_folder: &Path,
+    config: &ThumbOptions,
+) -> Result<()> {
     let Some(extension) = file.extension().and_then(|s| s.to_str()) else {
         return Ok(());
     };
-    let Some(filename) = file.file_name().and_then(|s| s.to_str()) else {
-        return Ok(());
-    };
 
-    let output_folder = config.thumbnails_dir.join(filename);
-    if config.skip_if_exists && thumbs_exist(&output_folder, config).await? {
+    if config.skip_if_exists && thumbs_exist(file, out_folder, config).await? {
         return Ok(());
     }
 
@@ -129,7 +128,7 @@ pub async fn generate_thumbnails(file: &Path, config: &ThumbOptions) -> Result<(
         generate_video_thumbnails(file, temp_out_dir, config).await?
     }
 
-    move_dir_contents(temp_out_dir, &output_folder).await?;
+    move_dir_contents(temp_out_dir, out_folder).await?;
     temp_dir.cleanup()?;
 
     Ok(())
