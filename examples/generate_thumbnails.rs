@@ -16,7 +16,6 @@ async fn main() -> Result<()> {
     fs::create_dir_all(&thumbnails_dir).await?;
 
     let config = ThumbOptions {
-        thumbnails_dir: thumbnails_dir.to_path_buf(),
         photo_extensions: ["jpg", "jpeg", "png", "gif", "tiff", "tga", "avif"]
             .iter()
             .map(|x| x.to_string())
@@ -61,7 +60,8 @@ async fn main() -> Result<()> {
                 println!("Processing file: {:?}", &path);
                 let retry_strategy = FixedInterval::from_millis(500).take(3);
                 let result = Retry::spawn(retry_strategy, || async {
-                    generate_thumbnails(&path, &config).await
+                    let filename = path.file_name().unwrap().to_string_lossy().to_string();
+                    generate_thumbnails(&path, &thumbnails_dir.join(filename), &config).await
                 })
                 .await;
                 if let Err(e) = result {
