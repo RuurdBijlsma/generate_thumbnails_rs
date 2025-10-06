@@ -123,7 +123,7 @@ pub async fn generate_thumbnails(
     let temp_out_dir = temp_dir.path();
 
     if config.photo_extensions.contains(&extension) {
-        generate_photo_thumbnails(file, temp_out_dir, &config.heights, "avif").await?
+        generate_photo_thumbnails(file, temp_out_dir, &config.heights)?
     } else if config.video_extensions.contains(&extension) {
         generate_video_thumbnails(file, temp_out_dir, config).await?
     }
