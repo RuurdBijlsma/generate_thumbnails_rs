@@ -21,38 +21,50 @@
 //! ## Example
 //!
 //! ```no_run
-//! use ruurd_photos_thumbnail_generation::{generate_thumbnails, ThumbOptions, VideoOutputFormat};
+//! use ruurd_photos_thumbnail_generation::{generate_thumbnails, ThumbOptions, VideoOutputFormat, VideoThumbOptions, AvifOptions};
 //! use std::path::Path;
 //!
 //! #[tokio::main]
 //! async fn main() -> color_eyre::Result<()> {
-//!     let source_file = Path::new("path/to/video.mp4");
+//!     use ruurd_photos_thumbnail_generation::AvifOptions;
+//! let source_file = Path::new("path/to/video.mp4");
 //!     let output_dir = Path::new("path/to/thumbnails");
 //!
 //!     let config = ThumbOptions {
-//!         photo_extensions: vec!["jpg", "jpeg", "png", "gif", "tiff", "tga"]
+//!         photo_extensions: ["jpg", "jpeg", "png", "gif", "tiff", "tga", "avif"]
 //!             .iter()
 //!             .map(|x| x.to_string())
 //!             .collect(),
-//!         video_extensions: vec![
-//!           "mp4", "webm", "av1", "3gp", "mov", "mkv", "flv", "m4v", "m4p",
+//!         video_extensions: [
+//!             "mp4", "webm", "av1", "3gp", "mov", "mkv", "flv", "m4v", "m4p",
 //!         ]
-//!             .iter()
-//!             .map(|x| x.to_string())
-//!             .collect(),
-//!         thumb_ext: "avif".to_string(),
-//!         transcode_ext: "webm".to_string(),
-//!         heights: vec![240, 480, 1080],
-//!         thumb_time: 1.5, // seconds
-//!         percentages: vec![0, 33, 66, 99],
-//!         height: 720,
-//!         output_videos: vec![
-//!             VideoOutputFormat {
-//!                 height: 480,
-//!                 quality: 35,
-//!             },
-//!         ],
+//!         .iter()
+//!         .map(|x| x.to_string())
+//!         .collect(),
 //!         skip_if_exists: true,
+//!         heights: vec![10, 144, 240, 360, 480, 720, 1080],
+//!         thumbnail_extension: "avif".to_string(),
+//!         avif_options: AvifOptions {
+//!             quality: 80.,
+//!             alpha_quality: 80.,
+//!             speed: 4,
+//!         },
+//!         video_options: VideoThumbOptions {
+//!             extension: "webm".to_string(),
+//!             thumb_time: 0.5,
+//!             percentages: vec![0, 33, 66, 99],
+//!             height: 720,
+//!             output_videos: vec![
+//!                 VideoOutputFormat {
+//!                     height: 480,
+//!                     quality: 35,
+//!                 },
+//!                 VideoOutputFormat {
+//!                     height: 144,
+//!                     quality: 40,
+//!                 },
+//!             ],
+//!         },
 //!     };
 //!
 //!     if let Err(e) = generate_thumbnails(source_file, &output_dir.join("vid_thumbs"), &config).await {
@@ -73,6 +85,6 @@ mod ffprobe;
 mod ffmpeg;
 
 // Re-export the primary configuration structs and the main function for easy access.
-pub use thumbnails::generic_thumbnails::ThumbOptions;
-pub use thumbnails::generic_thumbnails::VideoOutputFormat;
-pub use thumbnails::generic_thumbnails::generate_thumbnails;
+pub use thumbnails::generic_thumbnails::{
+    AvifOptions, ThumbOptions, VideoOutputFormat, VideoThumbOptions, generate_thumbnails,
+};

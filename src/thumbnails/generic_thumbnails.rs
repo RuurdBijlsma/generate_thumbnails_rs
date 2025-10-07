@@ -1,3 +1,4 @@
+use crate::thumbnails::ffmpeg_photo_thumbnail::generate_ffmpeg_photo_thumbnails;
 use crate::thumbnails::photo_thumbnails::generate_photo_thumbnails;
 use crate::thumbnails::video_thumbnails::generate_video_thumbnails;
 use crate::utils::move_dir_contents;
@@ -16,21 +17,21 @@ pub struct VideoOutputFormat {
     pub quality: u64,
 }
 
-/// A comprehensive configuration for generating thumbnails for both images and videos.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ThumbOptions {
-    /// Which extensions are categorized as video
-    pub video_extensions: Vec<String>,
-    /// Which extensions are categorized as photos
-    pub photo_extensions: Vec<String>,
-    /// The file extension for still image thumbnails (e.g., "avif", "jpg").
-    pub thumb_ext: String,
-    /// The file extension for video transcoding (e.g., "webm", "mp4").
-    pub transcode_ext: String,
-    /// A vector of heights for generating multiple thumbnails.
-    /// - For videos, these are the heights for stills taken at `thumb_time`.
-    /// - For images, these are the heights for the generated thumbnails.
-    pub heights: Vec<u64>,
+pub struct AvifOptions {
+    /// Quality 1..=100. Panics if out of range.
+    pub quality: f32,
+    /// Quality for the alpha channel only. `1..=100`. Panics if out of range.
+    pub alpha_quality: f32,
+    /// - 1 = very slow, but max compression.
+    /// - 10 = quick, but larger file sizes and lower quality.
+    ///
+    /// Panics if outside 1..=10.
+    pub speed: u8,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VideoThumbOptions {
     /// The specific time in seconds from the start of the video to generate multi-size stills from.
     pub thumb_time: f64,
     /// A vector of percentages of the video's total duration at which to capture still images.
@@ -39,6 +40,25 @@ pub struct ThumbOptions {
     pub height: u64,
     /// A list of video formats to generate as previews from the source video.
     pub output_videos: Vec<VideoOutputFormat>,
+    /// The file extension for video transcoding (e.g., "webm", "mp4").
+    pub extension: String,
+}
+
+/// A comprehensive configuration for generating thumbnails for both images and videos.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ThumbOptions {
+    /// Which extensions are categorized as video
+    pub video_extensions: Vec<String>,
+    /// Which extensions are categorized as photos
+    pub photo_extensions: Vec<String>,
+    /// A vector of heights for generating multiple thumbnails.
+    /// - For videos, these are the heights for stills taken at `thumb_time`.
+    /// - For images, these are the heights for the generated thumbnails.
+    pub heights: Vec<u64>,
+    /// The file extension for photo thumbnails (e.g., "avif", "webp", "jpg").
+    pub thumbnail_extension: String,
+    pub avif_options: AvifOptions,
+    pub video_options: VideoThumbOptions,
     pub skip_if_exists: bool,
 }
 
@@ -53,23 +73,23 @@ async fn thumbs_exist(file: &Path, thumb_folder: &Path, config: &ThumbOptions) -
     let is_photo = config.photo_extensions.contains(&extension);
     let is_video = config.video_extensions.contains(&extension);
 
-    let thumb_ext = &config.thumb_ext;
-    let transcode_ext = &config.transcode_ext;
+    let photo_thumb_ext = &config.thumbnail_extension;
+    let video_thumb_ext = &config.video_options.extension;
     let mut should_exist: Vec<String> = vec![];
 
     if is_photo || is_video {
         // Both photo and video should have a thumbnail for each entry in .heights.
         for h in &config.heights {
-            should_exist.push(format!("{h}p.{thumb_ext}"))
+            should_exist.push(format!("{h}p.{photo_thumb_ext}"))
         }
     }
     if is_video {
-        for p in &config.percentages {
-            should_exist.push(format!("{p}_percent.{thumb_ext}"))
+        for p in &config.video_options.percentages {
+            should_exist.push(format!("{p}_percent.{photo_thumb_ext}"))
         }
-        for x in &config.output_videos {
+        for x in &config.video_options.output_videos {
             let height = x.height;
-            should_exist.push(format!("{height}p.{transcode_ext}"))
+            should_exist.push(format!("{height}p.{video_thumb_ext}"))
         }
     }
 
@@ -123,9 +143,13 @@ pub async fn generate_thumbnails(
     let temp_out_dir = temp_dir.path();
 
     if config.photo_extensions.contains(&extension) {
-        generate_photo_thumbnails(file, temp_out_dir, &config.heights, "avif").await?
+        if config.thumbnail_extension == "avif" {
+            generate_photo_thumbnails(file, temp_out_dir, config)?;
+        } else {
+            generate_ffmpeg_photo_thumbnails(file, temp_out_dir, config).await?;
+        }
     } else if config.video_extensions.contains(&extension) {
-        generate_video_thumbnails(file, temp_out_dir, config).await?
+        generate_video_thumbnails(file, temp_out_dir, config).await?;
     }
 
     move_dir_contents(temp_out_dir, out_folder).await?;

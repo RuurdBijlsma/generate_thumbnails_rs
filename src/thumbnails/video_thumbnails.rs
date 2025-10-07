@@ -10,7 +10,10 @@ pub async fn generate_video_thumbnails(
     output_dir: &Path,
     config: &ThumbOptions,
 ) -> color_eyre::Result<()> {
-    if config.heights.is_empty() && config.percentages.is_empty() && config.output_videos.is_empty()
+    let options = &config.video_options;
+    if config.heights.is_empty()
+        && options.percentages.is_empty()
+        && options.output_videos.is_empty()
     {
         return Ok(());
     }
@@ -23,11 +26,11 @@ pub async fn generate_video_thumbnails(
     let mut filters = Vec::new();
     let mut maps = Vec::new();
     let mut input_idx = 0;
-    let time_height = config.height;
-    let thumb_ext = config.thumb_ext.clone();
+    let time_height = options.height;
+    let thumb_ext = config.thumbnail_extension.clone();
 
     // 1. time-based stills
-    for (i, &pct) in config.percentages.iter().enumerate() {
+    for (i, &pct) in options.percentages.iter().enumerate() {
         let ts = (pct as f64) / 100. * duration;
         args.extend(["-ss".into(), ts.to_string(), "-i".into(), input_str.clone()]);
         let out_label = format!("[out_ts{i}]");
@@ -41,7 +44,7 @@ pub async fn generate_video_thumbnails(
     if !config.heights.is_empty() {
         args.extend([
             "-ss".into(),
-            config.thumb_time.to_string(),
+            options.thumb_time.to_string(),
             "-i".into(),
             input_str.clone(),
         ]);
@@ -63,26 +66,26 @@ pub async fn generate_video_thumbnails(
     }
 
     // 3. multi-res webm
-    if !config.output_videos.is_empty() {
+    if !options.output_videos.is_empty() {
         args.extend(["-i".into(), input_str.clone()]);
-        let vlabels: Vec<String> = (0..config.output_videos.len())
+        let vlabels: Vec<String> = (0..options.output_videos.len())
             .map(|i| format!("[v{i}]"))
             .collect();
-        let alabels: Vec<String> = (0..config.output_videos.len())
+        let alabels: Vec<String> = (0..options.output_videos.len())
             .map(|i| format!("[a{i}]"))
             .collect();
         filters.push(format!(
             "[{input_idx}:v:0]split={}{}",
-            config.output_videos.len(),
+            options.output_videos.len(),
             vlabels.join("")
         ));
         filters.push(format!(
             "[{input_idx}:a:0?]asplit={}{}",
-            config.output_videos.len(),
+            options.output_videos.len(),
             alabels.join("")
         ));
 
-        for (i, hq_config) in config.output_videos.iter().enumerate() {
+        for (i, hq_config) in options.output_videos.iter().enumerate() {
             let vout = format!("[out_v{i}]");
             let h = hq_config.height;
             filters.push(format!("[v{i}]scale=-2:{h}{vout}"));
