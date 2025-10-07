@@ -13,7 +13,7 @@ pub async fn generate_video_thumbnails(
     let options = &config.video_options;
     if config.heights.is_empty()
         && options.percentages.is_empty()
-        && options.output_videos.is_empty()
+        && options.transcode_outputs.is_empty()
     {
         return Ok(());
     }
@@ -66,26 +66,26 @@ pub async fn generate_video_thumbnails(
     }
 
     // 3. multi-res webm
-    if !options.output_videos.is_empty() {
+    if !options.transcode_outputs.is_empty() {
         args.extend(["-i".into(), input_str.clone()]);
-        let vlabels: Vec<String> = (0..options.output_videos.len())
+        let vlabels: Vec<String> = (0..options.transcode_outputs.len())
             .map(|i| format!("[v{i}]"))
             .collect();
-        let alabels: Vec<String> = (0..options.output_videos.len())
+        let alabels: Vec<String> = (0..options.transcode_outputs.len())
             .map(|i| format!("[a{i}]"))
             .collect();
         filters.push(format!(
             "[{input_idx}:v:0]split={}{}",
-            options.output_videos.len(),
+            options.transcode_outputs.len(),
             vlabels.join("")
         ));
         filters.push(format!(
             "[{input_idx}:a:0?]asplit={}{}",
-            options.output_videos.len(),
+            options.transcode_outputs.len(),
             alabels.join("")
         ));
 
-        for (i, hq_config) in options.output_videos.iter().enumerate() {
+        for (i, hq_config) in options.transcode_outputs.iter().enumerate() {
             let vout = format!("[out_v{i}]");
             let h = hq_config.height;
             filters.push(format!("[v{i}]scale=-2:{h}{vout}"));
