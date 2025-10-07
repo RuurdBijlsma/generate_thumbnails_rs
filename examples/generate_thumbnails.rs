@@ -1,6 +1,8 @@
 use color_eyre::Result;
 use futures::stream::{self, StreamExt};
-use ruurd_photos_thumbnail_generation::{ThumbOptions, VideoOutputFormat, generate_thumbnails};
+use ruurd_photos_thumbnail_generation::{
+    AvifOptions, ThumbOptions, VideoOutputFormat, VideoThumbOptions, generate_thumbnails,
+};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio_retry::Retry;
@@ -26,23 +28,30 @@ async fn main() -> Result<()> {
         .iter()
         .map(|x| x.to_string())
         .collect(),
-        thumb_ext: "avif".to_string(),
-        transcode_ext: "webm".to_string(),
-        heights: vec![240, 480, 1080],
-        thumb_time: 0.5,
-        percentages: vec![0, 33, 66, 99],
-        height: 720,
-        output_videos: vec![
-            VideoOutputFormat {
-                height: 480,
-                quality: 35,
-            },
-            VideoOutputFormat {
-                height: 144,
-                quality: 40,
-            },
-        ],
         skip_if_exists: true,
+        heights: vec![10, 144, 240, 360, 480, 720, 1080],
+        thumbnail_extension: "avif".to_string(),
+        avif_options: AvifOptions {
+            quality: 80.,
+            alpha_quality: 80.,
+            speed: 4,
+        },
+        video_options: VideoThumbOptions {
+            extension: "webm".to_string(),
+            thumb_time: 0.5,
+            percentages: vec![0, 33, 66, 99],
+            height: 720,
+            output_videos: vec![
+                VideoOutputFormat {
+                    height: 480,
+                    quality: 35,
+                },
+                VideoOutputFormat {
+                    height: 144,
+                    quality: 40,
+                },
+            ],
+        },
     };
 
     let files_to_process: Vec<PathBuf> = WalkDir::new(source_folder)

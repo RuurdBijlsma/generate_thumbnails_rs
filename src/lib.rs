@@ -26,7 +26,8 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> color_eyre::Result<()> {
-//!     let source_file = Path::new("path/to/video.mp4");
+//!     use ruurd_photos_thumbnail_generation::AvifOptions;
+//! let source_file = Path::new("path/to/video.mp4");
 //!     let output_dir = Path::new("path/to/thumbnails");
 //!
 //!     let config = ThumbOptions {
@@ -52,6 +53,11 @@
 //!                 quality: 35,
 //!             },
 //!         ],
+//!         avif_options: AvifOptions {
+//!             speed: 4,
+//!             alpha_quality: 80.,
+//!             quality: 80.,
+//!         },
 //!         skip_if_exists: true,
 //!     };
 //!
@@ -73,6 +79,6 @@ mod ffprobe;
 mod ffmpeg;
 
 // Re-export the primary configuration structs and the main function for easy access.
-pub use thumbnails::generic_thumbnails::ThumbOptions;
-pub use thumbnails::generic_thumbnails::VideoOutputFormat;
-pub use thumbnails::generic_thumbnails::generate_thumbnails;
+pub use thumbnails::generic_thumbnails::{
+    AvifOptions, ThumbOptions, VideoOutputFormat, VideoThumbOptions, generate_thumbnails,
+};

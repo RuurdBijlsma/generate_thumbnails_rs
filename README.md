@@ -15,6 +15,7 @@ A personal Rust crate for generating a variety of thumbnails from image and vide
 ## Requirements
 
 *   Rust (2021 edition or later)
+*   nasm: https://nasm.us/ to build ravif
 *   FFmpeg and FFprobe installed and available in your system's `PATH`.
 
 ## Usage
