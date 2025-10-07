@@ -37,7 +37,7 @@ jobs:
       - name: Cache and install system dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: libfontconfig1-dev pkg-config exiftool
+          packages: libfontconfig1-dev pkg-config ffmpeg nasm
           version: 1.0
 
       # Build the code
