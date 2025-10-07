@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
             thumb_time: 0.5,
             percentages: vec![0, 33, 66, 99],
             height: 720,
-            output_videos: vec![
+            transcode_outputs: vec![
                 VideoOutputFormat {
                     height: 480,
                     quality: 35,

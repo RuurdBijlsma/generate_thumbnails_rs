@@ -39,7 +39,7 @@ pub struct VideoThumbOptions {
     /// The height in pixels for the thumbnails generated based on the `percentages` field.
     pub height: u64,
     /// A list of video formats to generate as previews from the source video.
-    pub output_videos: Vec<VideoOutputFormat>,
+    pub transcode_outputs: Vec<VideoOutputFormat>,
     /// The file extension for video transcoding (e.g., "webm", "mp4").
     pub extension: String,
 }
@@ -87,7 +87,7 @@ async fn thumbs_exist(file: &Path, thumb_folder: &Path, config: &ThumbOptions) -
         for p in &config.video_options.percentages {
             should_exist.push(format!("{p}_percent.{photo_thumb_ext}"))
         }
-        for x in &config.video_options.output_videos {
+        for x in &config.video_options.transcode_outputs {
             let height = x.height;
             should_exist.push(format!("{height}p.{video_thumb_ext}"))
         }
